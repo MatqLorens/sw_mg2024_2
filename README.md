@@ -1,15 +1,18 @@
-# CI/CD Pipeline for Docker Images
+# **Projekt: CI/CD z Docker i GitHub Actions**
 
-## Część obowiązkowa – Docker Scout
-Workflow używa **Docker Scout** do skanowania obrazów pod kątem podatności. Obraz jest przesyłany do GHCR tylko wtedy, gdy nie zawiera krytycznych lub wysokich zagrożeń.
+## **Opis projektu**
 
-## Część nieobowiązkowa – Trivy
-Workflow wykorzystuje **Trivy** jako narzędzie open-source do skanowania obrazów Docker oraz generuje dane **SBOM** i provenance.
+Niniejszy projekt przedstawia konfigurację **łańcucha CI/CD** do budowania, skanowania i publikowania obrazów Docker przy użyciu **GitHub Actions**. Głównym celem jest zapewnienie, że obrazy nie zawierają podatności sklasyfikowanych jako **krytyczne** lub **wysokie**, zanim zostaną przesłane do **GitHub Container Registry (GHCR)**.  
+Workflow korzysta z narzędzia **Docker Scout** do analizy obrazów pod kątem podatności.
 
-### Uruchomienie
-1. Workflow można uruchomić ręcznie (`workflow_dispatch`) lub poprzez push tagu `v*`.
-2. Wszystkie obrazy są dostępne w GHCR: `ghcr.io/<USER>/server`.
+---
 
-### Wymagania
-- Utworzenie **secrets** z `GITHUB_TOKEN` dla autoryzacji GHCR.
+## **Weryfikacja Działania Workflow**
 
+### **Uruchomienie Workflow**
+Workflow można uruchomić na dwa sposoby:
+- Ręcznie za pomocą **workflow_dispatch**.
+- Automatycznie po utworzeniu tagu (`v1.0.0`).
+
+### **Wynik w GHCR**
+Po zakończeniu działania workflow obraz jest dostępny w GitHub Container Registry:
