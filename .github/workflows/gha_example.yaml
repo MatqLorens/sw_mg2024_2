@@ -1,58 +1,83 @@
-name: GHAction example  
+name: Build, Scan and Push with Docker Scout
 
 on:
   workflow_dispatch:
   push:
     tags:
-    - 'v*'
+      - 'v*'   # Trigger on version tags, e.g., v1.0.0
 
 jobs:
-  ci_step:
-    name: Build, tag and push Docker image to DockerHub
+  build_and_scan:
+    name: Build, Scan and Push Docker Image
     runs-on: ubuntu-latest
-      
+
     steps:
-      - 
-        name: Check out the source_repo
+      # Step 1: Checkout the repository
+      - name: Checkout repository
         uses: actions/checkout@v4
-      
-      -
-        name: Docker metadata definitions
+
+      # Step 2: Set up QEMU for multi-architecture builds
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      # Step 3: Set up Docker Buildx for multi-architecture builds
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Step 4: Login to GitHub Container Registry (GHCR)
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Step 5: Generate Docker metadata for tags and labels
+      - name: Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ vars.DOCKERHUB_USERNAME }}/example
-          flavor: latest=false
+          images: ghcr.io/${{ github.repository_owner }}/server
           tags: |
+            type=semver,pattern={{version}}
             type=sha,priority=100,prefix=sha-,format=short
-            type=semver,priority=200,pattern={{version}}   
+            type=ref,event=branch
 
-      - 
-        name: QEMU set-up
-        uses: docker/setup-qemu-action@v3
-
-      - 
-        name: Buildx set-up
-        uses: docker/setup-buildx-action@v3
-
-      - 
-        name: Login to DockerHub
-        uses: docker/login-action@v3
+      # Step 6: Build Docker image (multi-architecture, local build)
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
         with:
-          username: ${{ vars.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: false     # Build locally first
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - 
-        name: Build and push Docker image
+      # Step 7: Install Docker Scout CLI
+      - name: Install Docker Scout CLI
+        run: |
+          curl -fsSL https://get.docker.com | sh
+          docker scout --version
+
+      # Step 8: Scan the image for vulnerabilities using Docker Scout
+      - name: Scan Docker image for vulnerabilities
+        id: scout
+        run: |
+          docker scout cves ghcr.io/${{ github.repository_owner }}/server:${{ steps.meta.outputs.version }} \
+            --only-severity critical,high \
+            --exit-code 1
+
+      # Step 9: Push the image to GHCR if scan passes
+      - name: Push Docker image to GHCR
+        if: success()
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          cache-from: |
-            type=registry,ref=${{ vars.DOCKERHUB_USERNAME }}/example:cache 
-          cache-to: |
-            type=registry,ref=${{ vars.DOCKERHUB_USERNAME }}/example:cache  
           tags: ${{ steps.meta.outputs.tags }}
-      
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
